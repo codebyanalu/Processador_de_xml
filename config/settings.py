@@ -72,7 +72,7 @@ CABECALHO_NFSE = [
     # Simples
     "pTotTribSN",
     # IBS/CBS
-    "IBS_vBC","IBS_pIBSUF","IBS_pIBSMun","CBS_pCBS",
+    "IBS_vBC","IBS_pIBSUF","IBS_vIBSUF","IBS_pIBSMun","IBS_vIBSMun","CBS_pCBS","CBS_vCBS","cClassTrib",
     # Valores
     "Valor_Bruto","Valor_Liquido","Discriminacao",
     # Prestador

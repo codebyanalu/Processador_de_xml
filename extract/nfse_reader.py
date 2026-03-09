@@ -97,11 +97,12 @@ def _extrair_nfse_nacional(root, arquivo):
     simples = _t(reg_trib,"opSimpNac") if reg_trib is not None else ""
 
     # IBS/CBS — em infNFSe/IBSCBS (Nacional)
-    ibs_vbc = ibs_uf = ibs_mun = cbs_p = ""
+    ibs_vbc = ibs_uf = ibs_vuf = ibs_mun = ibs_vmun = cbs_p = cbs_v = cclass_trib = ""
     ibscbs_inf = inf.find(".//IBSCBS")
     if ibscbs_inf is None:
-        ibscbs_inf = root.find(".//IBSCBS")   # fallback raiz
+        ibscbs_inf = root.find(".//IBSCBS")
     if ibscbs_inf is not None:
+        # alíquotas e BC em <valores>
         vals_ib = ibscbs_inf.find(".//valores")
         if vals_ib is not None:
             ibs_vbc = _t(vals_ib,"vBC")
@@ -111,6 +112,18 @@ def _extrair_nfse_nacional(root, arquivo):
             ibs_uf  = _t(uf_el, "pIBSUF")  if uf_el  is not None else ""
             ibs_mun = _t(mun_el,"pIBSMun") if mun_el is not None else ""
             cbs_p   = _t(fed_el,"pCBS")    if fed_el is not None else ""
+        # valores calculados em <totCIBS>
+        tot = ibscbs_inf.find(".//totCIBS")
+        if tot is not None:
+            ibs_vuf  = _t(tot.find(".//gIBSUFTot"),  "vIBSUF")  if tot.find(".//gIBSUFTot")  is not None else ""
+            ibs_vmun = _t(tot.find(".//gIBSMunTot"), "vIBSMun") if tot.find(".//gIBSMunTot") is not None else ""
+            cbs_v    = _t(tot.find(".//gCBS"),        "vCBS")    if tot.find(".//gCBS")        is not None else ""
+        # cClassTrib em IBSCBS/valores/trib/gIBSCBS
+        gibscbs = ibscbs_inf.find(".//gIBSCBS")
+        if gibscbs is None:
+            ibscbs_dps = infdps.find(".//IBSCBS") if infdps is not None else None
+            gibscbs = ibscbs_dps.find(".//gIBSCBS") if ibscbs_dps is not None else None
+        cclass_trib = _t(gibscbs, "cClassTrib") if gibscbs is not None else ""
 
     d = {
         "Formato":              "NFSe Nacional",
@@ -147,8 +160,12 @@ def _extrair_nfse_nacional(root, arquivo):
         # IBS/CBS
         "IBS_vBC":              ibs_vbc,
         "IBS_pIBSUF":           ibs_uf,
+        "IBS_vIBSUF":           ibs_vuf,
         "IBS_pIBSMun":          ibs_mun,
+        "IBS_vIBSMun":          ibs_vmun,
         "CBS_pCBS":             cbs_p,
+        "CBS_vCBS":             cbs_v,
+        "cClassTrib":           cclass_trib,
         # Valores
         "Valor_Bruto":          v_serv,
         "Valor_Liquido":        v_liq,
@@ -189,7 +206,7 @@ def _extrair_compnfe(root, arquivo):
     vals_ib = ibscbs.find(".//valores") if ibscbs is not None else None
 
     # IBSCBS detalhado
-    ibs_vbc = ibs_uf = ibs_mun = cbs_p = ""
+    ibs_vbc = ibs_uf = ibs_vuf = ibs_mun = ibs_vmun = cbs_p = cbs_v = cclass_trib = ""
     if vals_ib is not None:
         ibs_vbc = _t(vals_ib,"vBC")
         uf_el   = ibscbs.find(".//uf")
@@ -198,6 +215,14 @@ def _extrair_compnfe(root, arquivo):
         ibs_uf  = _t(uf_el, "pIBSUF")  if uf_el  is not None else ""
         ibs_mun = _t(mun_el,"pIBSMun") if mun_el is not None else ""
         cbs_p   = _t(fed_el,"pCBS")    if fed_el is not None else ""
+        gibscbs = ibscbs.find(".//gIBSCBS")
+        cclass_trib = _t(gibscbs,"cClassTrib") if gibscbs is not None else ""
+    if ibscbs is not None:
+        tot = ibscbs.find(".//totCIBS")
+        if tot is not None:
+            ibs_vuf  = _t(tot.find(".//gIBSUFTot"),  "vIBSUF")  if tot.find(".//gIBSUFTot")  is not None else ""
+            ibs_vmun = _t(tot.find(".//gIBSMunTot"), "vIBSMun") if tot.find(".//gIBSMunTot") is not None else ""
+            cbs_v    = _t(tot.find(".//gCBS"),        "vCBS")    if tot.find(".//gCBS")        is not None else ""
 
     # DPS embutido (Onfly, Vogel)
     dps     = nfe.find(".//DPS")
@@ -245,8 +270,12 @@ def _extrair_compnfe(root, arquivo):
         # IBS/CBS
         "IBS_vBC":              ibs_vbc,
         "IBS_pIBSUF":           ibs_uf,
+        "IBS_vIBSUF":           ibs_vuf,
         "IBS_pIBSMun":          ibs_mun,
+        "IBS_vIBSMun":          ibs_vmun,
         "CBS_pCBS":             cbs_p,
+        "CBS_vCBS":             cbs_v,
+        "cClassTrib":           cclass_trib,
         # Valores
         "Valor_Bruto":          v_bruto,
         "Valor_Liquido":        v_liq,

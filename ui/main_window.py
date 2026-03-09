@@ -463,30 +463,47 @@ class JanelaDashboard(tk.Toplevel):
 class JanelaPlanilhaNFSe(tk.Toplevel):
 
     COLUNAS = [
-        "#","Numero_NFSe","Data_Emissao","Formato",
-        "Nome_Prestador","CNPJ_Prestador","UF_Prestador","Mun_Prestador",
-        "Nome_Tomador","CNPJ_Tomador",
-        "cTribNac","xDescServ",
-        "BC_ISS","Aliq_ISS","Valor_ISS","tpRetISSQN",
-        "BC_CSRF","Valor_PIS","Valor_COFINS","Valor_CSLL","Valor_IRRF","Valor_INSS",
-        "pTotTribSN","IBS_vBC","IBS_pIBSUF","IBS_pIBSMun","CBS_pCBS",
-        "Valor_Bruto","Valor_Liquido",
-        "Discriminacao","Simples_Nacional","Arquivo_Origem",
+        # Identificação
+        "#","Tipo_Nota","Formato","Chave_NFSe","Numero_NFSe","Serie_RPS",
+        "Data_Emissao","Data_Competencia","Municipio_Prestacao",
+        # Serviço
+        "cTribNac","xDescServ","cNBS_DPS","Cod_Servico_Mun","Desc_Servico",
+        "Cod_Item_Lei116","Cod_NBS",
+        # Prestador
+        "Nome_Prestador","NomeFantasia_Prestador","CNPJ_Prestador","IM_Prestador",
+        "UF_Prestador","Mun_Prestador","Email_Prestador","Simples_Nacional",
+        # Tomador
+        "Nome_Tomador","CNPJ_Tomador","IM_Tomador","Mun_Tomador","UF_Tomador","Email_Tomador",
+        # ISS
+        "ISS_Retido","BC_ISS","Aliq_ISS","pAliq_ISS","Valor_ISS","tpRetISSQN",
+        # CSRF
+        "BC_CSRF","Valor_PIS","Valor_COFINS","Valor_CSLL",
+        "BC_IRRF","Valor_IRRF","BC_INSS","Valor_INSS","pTotTribSN",
+        # IBS/CBS
+        "IBS_vBC","IBS_pIBSUF","IBS_vIBSUF","IBS_pIBSMun","IBS_vIBSMun","CBS_pCBS","CBS_vCBS","cClassTrib",
+        # Valores
+        "Valor_Bruto","Valor_Liquido","Discriminacao","Arquivo_Origem",
     ]
     LARG = {
-        "#":35,"Numero_NFSe":80,"Data_Emissao":130,"Formato":110,
-        "Nome_Prestador":200,"CNPJ_Prestador":120,"UF_Prestador":40,"Mun_Prestador":110,
-        "Nome_Tomador":180,"CNPJ_Tomador":120,
-        "cTribNac":75,"xDescServ":240,
-        "BC_ISS":100,"Aliq_ISS":70,"Valor_ISS":100,"tpRetISSQN":90,
+        "#":35,"Tipo_Nota":70,"Formato":110,"Chave_NFSe":200,"Numero_NFSe":80,"Serie_RPS":70,
+        "Data_Emissao":130,"Data_Competencia":120,"Municipio_Prestacao":130,
+        "cTribNac":75,"xDescServ":240,"cNBS_DPS":80,"Cod_Servico_Mun":120,
+        "Desc_Servico":200,"Cod_Item_Lei116":110,"Cod_NBS":80,
+        "Nome_Prestador":200,"NomeFantasia_Prestador":160,"CNPJ_Prestador":120,
+        "IM_Prestador":100,"UF_Prestador":40,"Mun_Prestador":110,
+        "Email_Prestador":180,"Simples_Nacional":100,
+        "Nome_Tomador":180,"CNPJ_Tomador":120,"IM_Tomador":100,
+        "Mun_Tomador":110,"UF_Tomador":40,"Email_Tomador":180,
+        "ISS_Retido":80,"BC_ISS":100,"Aliq_ISS":70,"pAliq_ISS":70,"Valor_ISS":100,"tpRetISSQN":90,
         "BC_CSRF":90,"Valor_PIS":90,"Valor_COFINS":90,"Valor_CSLL":90,
-        "Valor_IRRF":90,"Valor_INSS":90,
-        "pTotTribSN":90,"IBS_vBC":85,"IBS_pIBSUF":80,"IBS_pIBSMun":80,"CBS_pCBS":70,
+        "BC_IRRF":90,"Valor_IRRF":90,"BC_INSS":90,"Valor_INSS":90,"pTotTribSN":90,
+        "IBS_vBC":85,"IBS_pIBSUF":80,"IBS_vIBSUF":90,"IBS_pIBSMun":80,"IBS_vIBSMun":90,"CBS_pCBS":70,"CBS_vCBS":90,"cClassTrib":90,
         "Valor_Bruto":110,"Valor_Liquido":110,
-        "Discriminacao":270,"Simples_Nacional":100,"Arquivo_Origem":180,
+        "Discriminacao":270,"Arquivo_Origem":180,
     }
     MOEDA = {"BC_ISS","Valor_ISS","BC_CSRF","Valor_PIS","Valor_COFINS","Valor_CSLL",
-             "Valor_IRRF","Valor_INSS","IBS_vBC","Valor_Bruto","Valor_Liquido"}
+             "Valor_IRRF","Valor_INSS","IBS_vBC","IBS_vIBSUF","IBS_vIBSMun","CBS_vCBS",
+             "Valor_Bruto","Valor_Liquido"}
 
     def __init__(self, master, df):
         super().__init__(master)
