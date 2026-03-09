@@ -66,26 +66,33 @@ def _vl(v):
     return "" if s in ("nan","None","") else s
 
 def _btn(parent, texto, cmd, bg, hv, **kw):
-    return tk.Button(parent, text=texto, command=cmd, bg=bg, fg="white",
+    fg = kw.pop("fg", "white")
+    return tk.Button(parent, text=texto, command=cmd, bg=bg, fg=fg,
                      font=("Segoe UI",10,"bold"), relief="flat",
                      padx=12, pady=5, cursor="hand2",
                      activebackground=hv, activeforeground="white", bd=0, **kw)
 
 def _ler_csv(caminho, cabecalho):
-    """Lê CSV → DataFrame com colunas garantidas. Tenta utf-8 e fallback latin-1."""
+    """Lê CSV → DataFrame com colunas garantidas.
+    Robusto a cabeçalho antigo: preserva colunas existentes e preenche
+    colunas novas com ''. Retorna None se vazio/inexistente/inválido."""
     if not os.path.exists(caminho):
         return None
+    df = None
     for enc in ("utf-8", "utf-8-sig", "latin-1"):
         try:
             df = pd.read_csv(caminho, dtype=str, encoding=enc, on_bad_lines="skip")
-            if df.empty:
-                return None
-            return df.reindex(columns=cabecalho, fill_value="")
+            break
         except UnicodeDecodeError:
             continue
         except Exception:
             return None
-    return None
+    if df is None or df.empty:
+        return None
+    # Precisa ter pelo menos uma coluna reconhecida (CSV válido para este tipo)
+    if not (set(df.columns) & set(cabecalho)):
+        return None
+    return df.reindex(columns=cabecalho, fill_value="")
 
 # ─── Widgets: Treeview ────────────────────────────────────────────────────────
 
@@ -509,7 +516,6 @@ class JanelaPlanilhaNFSe(tk.Toplevel):
         super().__init__(master)
         # Garante que df é válido
         if df is None or len(df) == 0:
-            tk.Toplevel.__init__(self, master)
             self.title("NFS-e — Sem dados")
             tk.Label(self, text="Nenhuma NFS-e encontrada.\nImporte XMLs de NFS-e primeiro.",
                      font=("Segoe UI",12), padx=40, pady=40).pack()
@@ -586,10 +592,11 @@ class JanelaPlanilhaNFSe(tk.Toplevel):
         sel = self.tree.selection()
         if not sel:
             self._lbl_sel.configure(text="Clique para selecionar"); return
+        idx_bruto = self.COLUNAS.index("Valor_Bruto")
         tot = 0
         for s in sel:
             try:
-                v = str(self.tree.item(s, "values")[27])  # Valor_Bruto
+                v = str(self.tree.item(s, "values")[idx_bruto])
                 tot += _f(v.replace("R$","").replace(",",""))
             except: pass
         self._lbl_sel.configure(text=f"{len(sel)} selecionado(s)  |  Total Bruto: R$ {tot:,.2f}")
@@ -1030,12 +1037,17 @@ class AplicacaoLeitorXML:
 
     def _csv_nfse(self):
         """Retorna o melhor CSV NFS-e disponível: temp (se tiver dados) > principal."""
-        import os
         for caminho in (cfg.CSV_NFSE_TEMP, cfg.CSV_NFSE_PRINCIPAL):
-            if os.path.exists(caminho) and os.path.getsize(caminho) > 200:
-                df = _ler_csv(caminho, CABECALHO_NFSE)
-                if df is not None and len(df) > 0:
+            if not os.path.exists(caminho) or os.path.getsize(caminho) < 50:
+                continue
+            # Verificar se tem ao menos 2 linhas (cabeçalho + 1 dado)
+            try:
+                with open(caminho, "r", encoding="utf-8", errors="ignore") as f:
+                    linhas = sum(1 for _ in f)
+                if linhas >= 2:
                     return caminho
+            except Exception:
+                continue
         return None
 
     def _ver_nfe(self):

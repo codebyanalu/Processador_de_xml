@@ -29,7 +29,7 @@ XmlProcessor/
 ├── main.py                    ← ponto de entrada — execute este
 │
 ├── config/
-│   └── settings.py            ← caminhos, sessão, cabeçalhos (71 campos NF-e, 52 NFS-e)
+│   └── settings.py            ← caminhos, sessão, cabeçalhos (71 campos NF-e, 56 NFS-e)
 │
 ├── extract/
 │   ├── xml_reader.py          ← NF-e modelo 55: ICMS, IPI, PIS, COFINS, IBS/CBS por produto
@@ -116,7 +116,7 @@ tag raiz = "CompNFe"  →  _extrair_compnfe()        # municipal legado
 tag raiz = "NFSe"     →  _extrair_nfse_nacional()   # padrão SPED/Fazenda
 ```
 
-Os dois formatos têm estruturas XML completamente diferentes. Cada função sabe onde buscar cada campo. Ambas retornam o mesmo dicionário de 52 campos — o resto do sistema não precisa saber qual formato veio.
+Os dois formatos têm estruturas XML completamente diferentes. Cada função sabe onde buscar cada campo. Ambas retornam o mesmo dicionário de 56 campos — o resto do sistema não precisa saber qual formato veio.
 
 ---
 
@@ -135,7 +135,7 @@ Os dois formatos têm estruturas XML completamente diferentes. Cada função sab
 | IBS/CBS | CST, cClassTrib, vBC, pIBSUF, vIBSUF, pIBSMun, vIBSMun, vIBS, pCBS, vCBS |
 | Meta | Arquivo_Origem |
 
-## Campos extraídos — NFS-e (52 campos)
+## Campos extraídos — NFS-e (56 campos)
 
 | Grupo | Campos |
 |---|---|
@@ -143,11 +143,13 @@ Os dois formatos têm estruturas XML completamente diferentes. Cada função sab
 | Serviço | cTribNac, xDescServ, cNBS_DPS, Cod_Servico_Mun, Desc_Servico, Cod_Item_Lei116, Cod_NBS |
 | ISS | ISS_Retido, BC_ISS, Aliq_ISS, Valor_ISS, pAliq_ISS, tpRetISSQN |
 | CSRF | BC_CSRF, Valor_PIS, Valor_COFINS, Valor_CSLL, BC_IRRF, Valor_IRRF, BC_INSS, Valor_INSS |
-| Simples/IBS/CBS | pTotTribSN, IBS_vBC, IBS_pIBSUF, IBS_pIBSMun, CBS_pCBS |
+| Simples/IBS/CBS | pTotTribSN, IBS_vBC, IBS_pIBSUF, **IBS_vIBSUF**, IBS_pIBSMun, **IBS_vIBSMun**, CBS_pCBS, **CBS_vCBS**, **cClassTrib** |
 | Valores | Valor_Bruto, Valor_Liquido, Discriminacao |
 | Prestador | CNPJ, IM, Nome, NomeFantasia, UF, Municipio, Email, Simples_Nacional |
 | Tomador | CNPJ, IM, Nome, Municipio, UF, Email |
 | Meta | Arquivo_Origem |
+
+> **Negrito** = campos adicionados na versão atual (valores calculados IBS/CBS e classificação tributária)
 
 ---
 
@@ -176,3 +178,17 @@ Verifica: versão dos arquivos, dados existentes, dependências e teste de extra
 # Limpar cache Python após atualizar arquivos
 Get-ChildItem -Path "." -Recurse -Directory -Filter "__pycache__" | Remove-Item -Recurse -Force
 ```
+
+---
+
+## Histórico de correções relevantes
+
+| Versão | Correção |
+|---|---|
+| atual | `_ler_csv` robusto a CSV com cabeçalho de versão anterior — planilha NFS-e não abre mais vazia após atualizar o sistema |
+| atual | `_csv_nfse()` detecta CSV válido por contagem de linhas, não mais por leitura completa |
+| atual | Bug `tk.Button() got multiple values for keyword argument 'fg'` no botão ✕ do filtro |
+| anterior | Bug tela branca na janela NFS-e — `tk.Toplevel.__init__` chamado duas vezes |
+| anterior | Índice hardcoded `[27]` para Valor_Bruto substituído por índice dinâmico |
+| anterior | `IBS_vIBSUF`, `IBS_vIBSMun`, `CBS_vCBS` extraídos de `totCIBS` (não de `valores`) |
+| anterior | `cClassTrib` extraído em ambos os formatos (CompNFe e NFSe Nacional) |

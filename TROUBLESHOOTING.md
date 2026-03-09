@@ -28,6 +28,7 @@ Ele verifica automaticamente versão dos arquivos, dados existentes e dependênc
 8. [Edição manual no código não tem efeito](#8-edição-manual-no-código-não-tem-efeito)
 9. [Erro de permissão ao executar .ps1](#9-erro-de-permissão-ao-executar-ps1)
 10. [NFS-e Nacional não extrai impostos](#10-nfs-e-nacional-não-extrai-impostos)
+11. [TypeError: got multiple values for keyword argument 'fg'](#11-typeerror-got-multiple-values-for-keyword-argument-fg)
 
 ---
 
@@ -84,12 +85,21 @@ CSVs criados em Windows podem ter encoding `latin-1`. O sistema tenta `utf-8 →
 Se retornar 1 (só cabeçalho), o CSV está vazio — importe os XMLs novamente.
 
 ### Causa C — CSV temporário da sessão vazio
-Os CSVs temporários ficam em `%TEMP%\leitor_xml_multiusuario\`. Ao abrir o sistema, ele copia o CSV principal para o temporário. Se o principal não existia, o temporário começa vazio. 
+Os CSVs temporários ficam em `%TEMP%\leitor_xml_multiusuario\`. Ao abrir o sistema, ele copia o CSV principal para o temporário. Se o principal não existia, o temporário começa vazio.
 
 **Solução:** processe XMLs — o sistema criará e preencherá os arquivos automaticamente.
 
-### Causa D — arquivo `servicos_nfse.csv` com cabeçalho de versão antiga
-Se o CSV foi criado por uma versão anterior do sistema, pode ter menos colunas. O sistema preenche as novas com vazio (`reindex`), então os dados aparecem mas colunas novas ficam em branco. Reimporte os XMLs para atualizar.
+### Causa D — CSV com cabeçalho de versão anterior *(causa mais comum após atualizar o sistema)*
+Quando o sistema é atualizado e o `servicos_nfse.csv` foi gerado por uma versão mais antiga, o arquivo tem menos colunas. O sistema atual consegue ler e exibir esses dados normalmente — colunas novas aparecem vazias e os dados antigos são preservados.
+
+Se mesmo assim a planilha abrir vazia após atualizar os arquivos:
+
+1. Confirme que o `main_window.py` é o mais recente (deve conter `_csv_nfse` com contagem de linhas)
+2. Limpe o cache:
+```powershell
+Get-ChildItem -Path "." -Recurse -Directory -Filter "__pycache__" | Remove-Item -Recurse -Force
+```
+3. Execute novamente. Se os dados ainda não aparecerem, reimporte os XMLs — o novo CSV será gerado já com o cabeçalho atualizado de 56 campos.
 
 ---
 
@@ -239,6 +249,33 @@ O arquivo `extract/nfse_reader.py` deve mostrar `IPI=OK  IBS/CBS=OK` — mas par
 
 ### Solução
 Substitua o `extract/nfse_reader.py` pela versão mais recente.
+
+---
+
+## 11. TypeError: got multiple values for keyword argument 'fg'
+
+### Sintoma
+```
+TypeError: tkinter.Button() got multiple values for keyword argument 'fg'
+```
+O erro ocorre ao clicar em "Ver NFS-e (Planilha)" — a janela não abre.
+
+### Causa
+A função `_btn` define `fg="white"` internamente, mas a chamada do botão **✕** do filtro passava `fg=C_TEXTO` como parâmetro extra. O Python não aceita o mesmo argumento duas vezes.
+
+### Solução
+Substitua o `ui/main_window.py` pela versão mais recente. A correção foi fazer `_btn` aceitar `fg` como parâmetro opcional:
+
+```python
+def _btn(parent, texto, cmd, bg, hv, **kw):
+    fg = kw.pop("fg", "white")   # usa fg passado ou branco como padrão
+    return tk.Button(parent, ..., fg=fg, ...)
+```
+
+Após substituir o arquivo, limpe o cache:
+```powershell
+Get-ChildItem -Path "." -Recurse -Directory -Filter "__pycache__" | Remove-Item -Recurse -Force
+```
 
 ---
 
