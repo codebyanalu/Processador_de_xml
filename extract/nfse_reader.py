@@ -96,8 +96,23 @@ def _extrair_nfse_nacional(root, arquivo):
 
     simples = _t(reg_trib,"opSimpNac") if reg_trib is not None else ""
 
+    # IBS/CBS — em infNFSe/IBSCBS (Nacional)
+    ibs_vbc = ibs_uf = ibs_mun = cbs_p = ""
+    ibscbs_inf = inf.find(".//IBSCBS")
+    if ibscbs_inf is None:
+        ibscbs_inf = root.find(".//IBSCBS")   # fallback raiz
+    if ibscbs_inf is not None:
+        vals_ib = ibscbs_inf.find(".//valores")
+        if vals_ib is not None:
+            ibs_vbc = _t(vals_ib,"vBC")
+            uf_el   = ibscbs_inf.find(".//uf")
+            mun_el  = ibscbs_inf.find(".//mun")
+            fed_el  = ibscbs_inf.find(".//fed")
+            ibs_uf  = _t(uf_el, "pIBSUF")  if uf_el  is not None else ""
+            ibs_mun = _t(mun_el,"pIBSMun") if mun_el is not None else ""
+            cbs_p   = _t(fed_el,"pCBS")    if fed_el is not None else ""
+
     d = {
-        "Tipo_Nota":            "NFS-e",
         "Formato":              "NFSe Nacional",
         "Chave_NFSe":           inf.get("Id","").replace("NFS",""),
         "Numero_NFSe":          _t(inf,"nNFSe"),
@@ -130,10 +145,10 @@ def _extrair_nfse_nacional(root, arquivo):
         "Valor_INSS":           v_inss,
         "pTotTribSN":           p_sn,
         # IBS/CBS
-        "IBS_vBC":              "",
-        "IBS_pIBSUF":           "",
-        "IBS_pIBSMun":          "",
-        "CBS_pCBS":             "",
+        "IBS_vBC":              ibs_vbc,
+        "IBS_pIBSUF":           ibs_uf,
+        "IBS_pIBSMun":          ibs_mun,
+        "CBS_pCBS":             cbs_p,
         # Valores
         "Valor_Bruto":          v_serv,
         "Valor_Liquido":        v_liq,

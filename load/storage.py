@@ -284,7 +284,8 @@ def _sincronizar_csv(csv_temp, csv_principal, cabecalho, chave_fn):
             except UnicodeDecodeError:
                 continue
 
-        backup = csv_principal.replace(".csv", f"_backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv")
+        nome_backup = os.path.basename(csv_principal).replace(".csv", f"_backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv")
+        backup = os.path.join(TEMP_DIR, nome_backup)
         try: shutil.copy2(csv_principal, backup)
         except Exception: pass
 
@@ -324,11 +325,18 @@ def limpar_temporarios():
     try:
         agora = time.time()
         for n in os.listdir(TEMP_DIR):
-            if any(n.startswith(p) for p in ("temp_","lock_")):
-                c = os.path.join(TEMP_DIR,n)
-                if os.path.isfile(c) and (agora - os.path.getmtime(c)) > TEMP_TTL_SECONDS:
-                    try: os.remove(c)
-                    except Exception: pass
+            # Limpa temporários expirados e backups com mais de 7 dias
+            eh_temp   = any(n.startswith(p) for p in ("temp_","lock_"))
+            eh_backup = "_backup_" in n and n.endswith(".csv")
+            c = os.path.join(TEMP_DIR, n)
+            if not os.path.isfile(c): continue
+            idade = agora - os.path.getmtime(c)
+            if eh_temp and idade > TEMP_TTL_SECONDS:
+                try: os.remove(c)
+                except Exception: pass
+            elif eh_backup and idade > 7 * 86400:
+                try: os.remove(c)
+                except Exception: pass
     except Exception:
         pass
 
