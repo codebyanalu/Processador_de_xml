@@ -8,7 +8,7 @@ Correções definitivas:
   - NFS-e planilha com todos os campos e valores
 """
 
-import math, os, sys, threading, tkinter as tk
+import importlib, math, os, sys, threading, tkinter as tk
 import multiprocessing as mp
 from tkinter import filedialog, messagebox, scrolledtext, ttk
 from datetime import datetime
@@ -70,6 +70,10 @@ def _worker_processar(arquivos, csv_temp, csv_nfse_temp, cabecalho_csv, cabecalh
     lote_nfe = []; lote_nfse = []
     cnt_nfe = cnt_nfse = add_nfe = add_nfse = err_nfe = err_nfse = 0
 
+    def _chave_nfse(r):
+        cnpj_raiz = (r.get('CNPJ_Prestador','') or '').replace('.','').replace('/','').replace('-','')[:8].zfill(8)
+        return f"{r.get('Numero_NFSe','')}_{cnpj_raiz}"
+
     for i, arq in enumerate(arquivos, 1):
         nome = os.path.basename(arq)
         tipo = _tipo(arq)
@@ -81,10 +85,9 @@ def _worker_processar(arquivos, csv_temp, csv_nfse_temp, cabecalho_csv, cabecalh
                 err_nfse += 1
                 fila.put(("log", "err", f"  [{i:>4}/{total}] [NFS-e] ⚠  {nome[:48]}  →  {msg[:50]}"))
             else:
-                novos = [r for r in regs
-                         if f"{r.get('Chave_NFSe','')}_{r.get('Numero_NFSe','')}" not in chaves_nfse]
+                novos = [r for r in regs if _chave_nfse(r) not in chaves_nfse]
                 for r in novos:
-                    chaves_nfse.add(f"{r.get('Chave_NFSe','')}_{r.get('Numero_NFSe','')}")
+                    chaves_nfse.add(_chave_nfse(r))
                 lote_nfse.extend(novos); add_nfse += len(novos)
                 fila.put(("log", "nfse", f"  [{i:>4}/{total}] [NFS-e] {nome[:48]:<50}  {len(novos):>3} novo(s)  [{msg[:30]}]"))
         else:
@@ -538,236 +541,6 @@ class JanelaDashboard(tk.Toplevel):
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# JANELA PLANILHA NFS-e
-# ═══════════════════════════════════════════════════════════════════════════════
-
-class JanelaPlanilhaNFSe(tk.Toplevel):
-
-    COLUNAS = [
-        # Identificação
-        "#","Tipo_Nota","Formato","Chave_NFSe","Numero_NFSe","Serie_RPS",
-        "Data_Emissao","Data_Competencia","Municipio_Prestacao",
-        # Serviço
-        "cTribNac","xDescServ","cNBS_DPS","Cod_Servico_Mun","Desc_Servico",
-        "Cod_Item_Lei116","Cod_NBS",
-        # Prestador
-        "Nome_Prestador","NomeFantasia_Prestador","CNPJ_Prestador","IM_Prestador",
-        "UF_Prestador","Mun_Prestador","Email_Prestador","Simples_Nacional",
-        # Tomador
-        "Nome_Tomador","CNPJ_Tomador","IM_Tomador","Mun_Tomador","UF_Tomador","Email_Tomador",
-        # ISS
-        "ISS_Retido","BC_ISS","Aliq_ISS","pAliq_ISS","Valor_ISS","tpRetISSQN",
-        # CSRF
-        "BC_CSRF","Valor_PIS","Valor_COFINS","Valor_CSLL",
-        "BC_IRRF","Valor_IRRF","BC_INSS","Valor_INSS","pTotTribSN",
-        # IBS/CBS
-        "IBS_vBC","IBS_pIBSUF","IBS_vIBSUF","IBS_pIBSMun","IBS_vIBSMun","CBS_pCBS","CBS_vCBS","cClassTrib",
-        # Valores
-        "Valor_Bruto","Valor_Liquido","Discriminacao","Arquivo_Origem",
-    ]
-    LARG = {
-        "#":35,"Tipo_Nota":70,"Formato":110,"Chave_NFSe":200,"Numero_NFSe":80,"Serie_RPS":70,
-        "Data_Emissao":130,"Data_Competencia":120,"Municipio_Prestacao":130,
-        "cTribNac":75,"xDescServ":240,"cNBS_DPS":80,"Cod_Servico_Mun":120,
-        "Desc_Servico":200,"Cod_Item_Lei116":110,"Cod_NBS":80,
-        "Nome_Prestador":200,"NomeFantasia_Prestador":160,"CNPJ_Prestador":120,
-        "IM_Prestador":100,"UF_Prestador":40,"Mun_Prestador":110,
-        "Email_Prestador":180,"Simples_Nacional":100,
-        "Nome_Tomador":180,"CNPJ_Tomador":120,"IM_Tomador":100,
-        "Mun_Tomador":110,"UF_Tomador":40,"Email_Tomador":180,
-        "ISS_Retido":80,"BC_ISS":100,"Aliq_ISS":70,"pAliq_ISS":70,"Valor_ISS":100,"tpRetISSQN":90,
-        "BC_CSRF":90,"Valor_PIS":90,"Valor_COFINS":90,"Valor_CSLL":90,
-        "BC_IRRF":90,"Valor_IRRF":90,"BC_INSS":90,"Valor_INSS":90,"pTotTribSN":90,
-        "IBS_vBC":85,"IBS_pIBSUF":80,"IBS_vIBSUF":90,"IBS_pIBSMun":80,"IBS_vIBSMun":90,"CBS_pCBS":70,"CBS_vCBS":90,"cClassTrib":90,
-        "Valor_Bruto":110,"Valor_Liquido":110,
-        "Discriminacao":270,"Arquivo_Origem":180,
-    }
-    MOEDA = {"BC_ISS","Valor_ISS","BC_CSRF","Valor_PIS","Valor_COFINS","Valor_CSLL",
-             "Valor_IRRF","Valor_INSS","IBS_vBC","IBS_vIBSUF","IBS_vIBSMun","CBS_vCBS",
-             "Valor_Bruto","Valor_Liquido"}
-
-    def __init__(self, master, df):
-        super().__init__(master)
-        # Garante que df é válido
-        if df is None or len(df) == 0:
-            self.title("NFS-e — Sem dados")
-            tk.Label(self, text="Nenhuma NFS-e encontrada.\nImporte XMLs de NFS-e primeiro.",
-                     font=("Segoe UI",12), padx=40, pady=40).pack()
-            return
-        self.title(f"GCON/SIAN — NFS-e — Planilha  [{len(df)} notas]")
-        self.geometry("1800x930"); self.resizable(True, True)
-        self.configure(bg=C_FUNDO)
-
-        bruto = df["Valor_Bruto"].apply(_f).sum()
-        iss   = df["Valor_ISS"].apply(_f).sum()
-
-        # Topbar
-        top = tk.Frame(self, bg=C_PRIM, height=48); top.pack(fill="x"); top.pack_propagate(False)
-        tk.Label(top, text="  NFS-e  —  PLANILHA DE NOTAS DE SERVIÇO",
-                 bg=C_PRIM, fg="white", font=("Segoe UI",12,"bold")).pack(side="left", padx=12, pady=12)
-        tk.Label(top, text=f"{len(df)} notas  |  Bruto: R$ {bruto:,.2f}  |  ISS: R$ {iss:,.2f}",
-                 bg=C_PRIM, fg="#aed6f1", font=("Segoe UI",9)).pack(side="right", padx=14)
-
-        # Filtros
-        fb = tk.Frame(self, bg=C_F2, highlightbackground=C_BORDA, highlightthickness=1)
-        fb.pack(fill="x")
-        tk.Label(fb, text="  Filtrar:", bg=C_F2, fg=C_TEX2,
-                 font=("Segoe UI",9,"bold")).pack(side="left", padx=(10,4), pady=7)
-        self._fv = tk.StringVar()
-        en = tk.Entry(fb, textvariable=self._fv, font=("Segoe UI",10), width=36, relief="solid", bd=1)
-        en.pack(side="left", padx=4, pady=6)
-        en.bind("<KeyRelease>", lambda _: self._filtrar(df))
-        _btn(fb, "✕", lambda: [self._fv.set(""), self._filtrar(df)],
-             C_BORDA, "#aab7b8", fg=C_TEXTO).pack(side="left", padx=4)
-        _btn(fb, "Dashboard", lambda: JanelaDashboard(self, df), C_SEC, C_PRIM).pack(side="right", padx=8, pady=5)
-        _btn(fb, "Exportar CSV", lambda: self._export(df), C_OK, "#1a7a40").pack(side="right", padx=4, pady=5)
-
-        # Rodapé (side=bottom antes da tree)
-        rod = tk.Frame(self, bg=C_FUNDO, height=38,
-                       highlightbackground=C_BORDA, highlightthickness=1)
-        rod.pack(fill="x", side="bottom"); rod.pack_propagate(False)
-        self._lbl_sel = tk.Label(rod, text="Clique para selecionar",
-                                 bg=C_FUNDO, fg=C_TEX2, font=("Segoe UI",9))
-        self._lbl_sel.pack(side="left", padx=12, pady=8)
-        _btn(rod, "Fechar", self.destroy, C_ERR, "#a93226").pack(side="right", padx=8, pady=5)
-
-        # Tree
-        tf = tk.Frame(self, bg=C_FUNDO)
-        tf.pack(fill="both", expand=True, padx=6, pady=4)
-        self.tree = _make_tree(tf, self.COLUNAS, self.LARG, "NFSE_PL")
-        self.tree.bind("<<TreeviewSelect>>", self._sel)
-
-        self._preencher(df)
-
-    def _preencher(self, df):
-        self.tree.delete(*self.tree.get_children())
-        for i, (_, r) in enumerate(df.iterrows(), 1):
-            vals = [i]
-            for col in self.COLUNAS[1:]:
-                v = _vl(r.get(col, "") if hasattr(r, "get") else
-                         (r[col] if col in r.index else ""))
-                if col in self.MOEDA:
-                    vals.append(_moeda(v) if v else "")
-                elif col in ("xDescServ", "Discriminacao"):
-                    vals.append(v[:60])
-                else:
-                    vals.append(v)
-            tag = "par" if i % 2 == 0 else "impar"
-            self.tree.insert("", "end", tags=(tag,), values=vals)
-
-    def _filtrar(self, df):
-        t = self._fv.get().lower()
-        if not t:
-            self._preencher(df)
-        else:
-            self._preencher(df[df.apply(lambda r: any(t in str(v).lower() for v in r), axis=1)])
-
-    def _sel(self, _):
-        sel = self.tree.selection()
-        if not sel:
-            self._lbl_sel.configure(text="Clique para selecionar"); return
-        idx_bruto = self.COLUNAS.index("Valor_Bruto")
-        tot = 0
-        for s in sel:
-            try:
-                v = str(self.tree.item(s, "values")[idx_bruto])
-                tot += _f(v.replace("R$","").replace(",",""))
-            except: pass
-        self._lbl_sel.configure(text=f"{len(sel)} selecionado(s)  |  Total Bruto: R$ {tot:,.2f}")
-
-    def _export(self, df):
-        f = filedialog.asksaveasfilename(defaultextension=".csv",
-                                         filetypes=[("CSV","*.csv")])
-        if f: df.to_csv(f, index=False, encoding="utf-8-sig"); messagebox.showinfo("OK", f)
-
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# JANELA VISUALIZAÇÃO NF-e
-# ═══════════════════════════════════════════════════════════════════════════════
-
-class JanelaVisualizacaoNFe(tk.Toplevel):
-
-    COLUNAS = [
-        "#","Numero_NFe","Serie_NFe","NatOp","Data_Emissao",
-        "Nome_Emitente","UF_Emitente","Nome_Destinatario","UF_Destinatario",
-        "Item","cProd","xProd","NCM","CEST","CFOP","qCom","vUnCom","vProd",
-        # ICMS
-        "ICMS_orig","ICMS_CST","ICMS_modBC","ICMS_vBC","ICMS_pICMS","ICMS_vICMS",
-        "ICMS_vBCSTRet","ICMS_pST","ICMS_vICMSSTRet",
-        # IPI
-        "IPI_cEnq","IPI_CST","IPI_vBC","IPI_pIPI","IPI_vIPI",
-        # PIS
-        "PIS_CST","PIS_vBC","PIS_pPIS","PIS_vPIS",
-        # COFINS
-        "COFINS_CST","COFINS_vBC","COFINS_pCOFINS","COFINS_vCOFINS",
-        # IBS/CBS
-        "IBS_CST","cClassTrib","IBS_vBC","pIBSUF","vIBSUF","pIBSMun","vIBSMun","IBS_vIBS","pCBS","CBS_vCBS",
-    ]
-    LARG = {
-        "#":35,"Numero_NFe":70,"Serie_NFe":45,"NatOp":150,"Data_Emissao":130,
-        "Nome_Emitente":180,"UF_Emitente":40,"Nome_Destinatario":180,"UF_Destinatario":40,
-        "Item":40,"cProd":90,"xProd":200,"NCM":75,"CEST":65,"CFOP":55,
-        "qCom":70,"vUnCom":80,"vProd":90,
-        "ICMS_orig":55,"ICMS_CST":65,"ICMS_modBC":70,"ICMS_vBC":90,"ICMS_pICMS":80,"ICMS_vICMS":90,
-        "ICMS_vBCSTRet":90,"ICMS_pST":65,"ICMS_vICMSSTRet":100,
-        "IPI_cEnq":60,"IPI_CST":60,"IPI_vBC":80,"IPI_pIPI":65,"IPI_vIPI":80,
-        "PIS_CST":60,"PIS_vBC":85,"PIS_pPIS":70,"PIS_vPIS":85,
-        "COFINS_CST":75,"COFINS_vBC":90,"COFINS_pCOFINS":100,"COFINS_vCOFINS":100,
-        "IBS_CST":65,"cClassTrib":90,"IBS_vBC":85,"pIBSUF":75,"vIBSUF":75,
-        "pIBSMun":75,"vIBSMun":75,"IBS_vIBS":80,"pCBS":70,"CBS_vCBS":80,
-    }
-
-    def __init__(self, master, df):
-        super().__init__(master)
-        self.title(f"GCON/SIAN — NF-e — Produtos e Impostos  [{len(df)} registros]")
-        self.geometry("1800x900"); self.resizable(True, True)
-        self.configure(bg=C_FUNDO)
-        self._df = df
-
-        # Topbar
-        top = tk.Frame(self, bg=C_PRIM, height=48); top.pack(fill="x"); top.pack_propagate(False)
-        tk.Label(top, text="  NF-e  —  PRODUTOS E IMPOSTOS  (ICMS / IPI / PIS / COFINS / IBS / CBS)",
-                 bg=C_PRIM, fg="white", font=("Segoe UI",12,"bold")).pack(side="left", padx=12, pady=12)
-        tk.Label(top, text=f"{len(df)} registros",
-                 bg=C_PRIM, fg="#aed6f1", font=("Segoe UI",9)).pack(side="right", padx=12)
-
-        # Rodapé (side=bottom antes da tree)
-        rod = tk.Frame(self, bg=C_FUNDO, height=42,
-                       highlightbackground=C_BORDA, highlightthickness=1)
-        rod.pack(fill="x", side="bottom"); rod.pack_propagate(False)
-        _btn(rod, "Copiar Seleção", self._copiar, C_PRIM, C_SEC).pack(side="right", padx=6, pady=6)
-        _btn(rod, "Exportar CSV",   self._exportar, C_OK, "#1a7a40").pack(side="right", padx=4, pady=6)
-        _btn(rod, "Fechar",         self.destroy,   C_ERR, "#a93226").pack(side="right", padx=4, pady=6)
-        tk.Label(rod, text="  Selecione linhas para copiar. Colunas: ICMS/IPI/PIS/COFINS/IBS/CBS com BC e Alíquota.",
-                 bg=C_FUNDO, fg=C_TEX2, font=("Segoe UI",8)).pack(side="left", padx=10, pady=8)
-
-        # Tree (preenche o que sobra com pack expand)
-        tf = tk.Frame(self, bg=C_FUNDO)
-        tf.pack(fill="both", expand=True, padx=6, pady=4)
-        self.tree = _make_tree(tf, self.COLUNAS, self.LARG, "NFE_VIS")
-
-        for i, (_, r) in enumerate(df.iterrows(), 1):
-            tag = "par" if i % 2 == 0 else "impar"
-            vals = [i]
-            for col in self.COLUNAS[1:]:
-                v = _vl(r.get(col, "") if hasattr(r, "get") else
-                         (r[col] if col in r.index else ""))
-                vals.append(v[:60] if v else "")
-            self.tree.insert("", "end", tags=(tag,), values=vals)
-
-    def _copiar(self):
-        sel = self.tree.selection()
-        if not sel: messagebox.showinfo("Info", "Nenhum item selecionado."); return
-        txt = "\n".join("\t".join(str(v) for v in self.tree.item(s, "values")) for s in sel)
-        self.clipboard_clear(); self.clipboard_append(txt)
-
-    def _exportar(self):
-        f = filedialog.asksaveasfilename(defaultextension=".csv",
-                                          filetypes=[("CSV","*.csv")])
-        if f: self._df.to_csv(f, index=False, encoding="utf-8-sig"); messagebox.showinfo("OK", f)
-
-
-# ═══════════════════════════════════════════════════════════════════════════════
 # APLICAÇÃO PRINCIPAL
 # ═══════════════════════════════════════════════════════════════════════════════
 
@@ -785,8 +558,6 @@ class AplicacaoLeitorXML:
         self.processando  = False
         self.cancelar     = False
         self.arquivos     = []
-        self._win_nfe     = None   # referência à janela NF-e aberta
-        self._win_nfse    = None   # referência à janela NFS-e aberta
         self._win_dash    = None   # referência ao dashboard aberto
 
         locks = verificar_locks_ativos()
@@ -799,6 +570,7 @@ class AplicacaoLeitorXML:
         self._build_sidebar()
         self._build_area_principal()
         self._log_inicial()
+        self._iniciar_watcher()
 
     # ─── Sidebar ──────────────────────────────────────────────────────────────
 
@@ -842,8 +614,6 @@ class AplicacaoLeitorXML:
         sbtn("Selecionar Vários XMLs", "▶▶", self._sel_varios)
         tk.Frame(sb, bg=C_SIDE2, height=1).pack(fill="x", padx=16, pady=3)
         sec("VISUALIZAR")
-        sbtn("Ver NF-e (Produtos)",   "≡",  self._ver_nfe)
-        sbtn("Ver NFS-e (Planilha)",  "⊟",  self._ver_nfse)
         sbtn("Dashboard Geral",       "◉",  self._ver_dashboard)
         sbtn("Abrir Excel NF-e",      "⊞",  self._excel_nfe)
         sbtn("Abrir Excel NFS-e",     "⊡",  self._excel_nfse)
@@ -986,6 +756,28 @@ class AplicacaoLeitorXML:
 
     # ─── Seleção e Pipeline ───────────────────────────────────────────────────
 
+    def _iniciar_watcher(self):
+        """Inicia o file watcher em background — recarrega módulos ao salvar."""
+        try:
+            from core.watcher import FileWatcher
+
+            def _on_reload(nome, arq, hora, sucesso, erro):
+                # Callback roda na thread do watcher — usa .after para tocar na UI
+                import os
+                nome_curto = os.path.basename(arq)
+                if sucesso:
+                    self.janela.after(0, lambda: self.log(
+                        f"🔄 [{hora}] {nome_curto} recarregado ({nome})", "ok"))
+                else:
+                    self.janela.after(0, lambda: self.log(
+                        f"⚠ [{hora}] Erro ao recarregar {nome_curto}: {erro}", "err"))
+
+            self._watcher = FileWatcher(callback=_on_reload)
+            self._watcher.start()
+            self.log("👁 File watcher ativo — edite e salve qualquer .py para recarregar.", "info")
+        except Exception as e:
+            self.log(f"Watcher não iniciado: {e}", "warn")
+
     def _parar_processamento(self):
         if not self.processando: return
         if not messagebox.askyesno("Parar", "Parar imediatamente e descartar tudo da sessão atual?"):
@@ -1092,12 +884,6 @@ class AplicacaoLeitorXML:
                             f"NF-e : {cnt_nfe} arqs  →  {add_nfe} produtos novos\n"
                             f"NFS-e: {cnt_nfse} arqs  →  {add_nfse} notas novas\n"
                             + (f"Erros: {err_nfe+err_nfse}" if err_nfe+err_nfse else "Sem erros!"))
-
-        # Recarrega janelas abertas
-        if self._win_nfe  and self._win_nfe.winfo_exists():
-            self.log("Atualizando janela NF-e…", "info"); self._ver_nfe()
-        if self._win_nfse and self._win_nfse.winfo_exists():
-            self.log("Atualizando janela NFS-e…", "info"); self._ver_nfse()
         if self._win_dash and self._win_dash.winfo_exists():
             self.log("Atualizando Dashboard…", "info"); self._ver_dashboard()
 
@@ -1178,15 +964,6 @@ class AplicacaoLeitorXML:
 
     # ─── Visualizações ────────────────────────────────────────────────────────
 
-    def _csv_nfe(self):
-        """Retorna o melhor CSV NF-e disponível: temp (se tiver dados) > principal."""
-        import os
-        for caminho in (cfg.CSV_TEMP, cfg.CSV_PRINCIPAL):
-            if os.path.exists(caminho) and os.path.getsize(caminho) > 200:
-                df = _ler_csv(caminho, CABECALHO_CSV)
-                if df is not None and len(df) > 0:
-                    return caminho
-        return None
 
     def _csv_nfse(self):
         """Retorna o melhor CSV NFS-e disponível: temp (se tiver dados) > principal."""
@@ -1203,28 +980,33 @@ class AplicacaoLeitorXML:
                 continue
         return None
 
-    def _ver_nfe(self):
-        # Fecha janela anterior se ainda estiver aberta
-        if self._win_nfe and self._win_nfe.winfo_exists():
-            self._win_nfe.destroy()
-        csv = self._csv_nfe()
-        if csv is None:
-            messagebox.showwarning("Aviso", "Nenhum dado NF-e encontrado.\nImporte XMLs de NF-e primeiro."); return
-        origem = "sessão atual" if csv == cfg.CSV_TEMP else "base principal"
-        self.log(f"Abrindo NF-e de: {origem} ({os.path.basename(csv)})", "info")
-        df = _ler_csv(csv, CABECALHO_CSV)
-        self._win_nfe = JanelaVisualizacaoNFe(self.janela, df)
 
-    def _ver_nfse(self):
-        if self._win_nfse and self._win_nfse.winfo_exists():
-            self._win_nfse.destroy()
-        csv = self._csv_nfse()
-        if csv is None:
-            messagebox.showwarning("Aviso", "Nenhuma NFS-e encontrada.\nImporte XMLs de NFS-e primeiro."); return
-        origem = "sessão atual" if csv == cfg.CSV_NFSE_TEMP else "base principal"
-        self.log(f"Abrindo NFS-e de: {origem} ({os.path.basename(csv)})", "info")
-        df = _ler_csv(csv, CABECALHO_NFSE)
-        self._win_nfse = JanelaPlanilhaNFSe(self.janela, df)
+
+    def _csv_nfse(self):
+        """Retorna o melhor CSV NFS-e disponível: temp > principal."""
+        for caminho in (cfg.CSV_NFSE_TEMP, cfg.CSV_NFSE_PRINCIPAL):
+            if not os.path.exists(caminho) or os.path.getsize(caminho) < 50:
+                continue
+            try:
+                with open(caminho, "r", encoding="utf-8", errors="ignore") as f:
+                    if sum(1 for _ in f) >= 2:
+                        return caminho
+            except Exception:
+                continue
+        return None
+
+    def _csv_nfe(self):
+        """Retorna o melhor CSV NF-e disponível: temp > principal."""
+        for caminho in (cfg.CSV_TEMP, cfg.CSV_PRINCIPAL):
+            if not os.path.exists(caminho) or os.path.getsize(caminho) < 50:
+                continue
+            try:
+                with open(caminho, "r", encoding="utf-8", errors="ignore") as f:
+                    if sum(1 for _ in f) >= 2:
+                        return caminho
+            except Exception:
+                continue
+        return None
 
     def _ver_dashboard(self):
         if self._win_dash and self._win_dash.winfo_exists():
@@ -1291,8 +1073,6 @@ class AplicacaoLeitorXML:
         self._c_nfse.configure(text="0")
         self.log("Sessão limpa. NF-e e NFS-e zerados.", "warn")
         # Fecha janelas abertas pois os dados foram zerados
-        if self._win_nfe  and self._win_nfe.winfo_exists():  self._win_nfe.destroy()
-        if self._win_nfse and self._win_nfse.winfo_exists(): self._win_nfse.destroy()
         if self._win_dash and self._win_dash.winfo_exists(): self._win_dash.destroy()
 
     def _fechar(self):
@@ -1313,6 +1093,8 @@ class AplicacaoLeitorXML:
                 self.log("Sincronizando antes de fechar…", "info")
                 sincronizar_com_principal(); sincronizar_nfse_com_principal()
                 atualizar_excel_principal(); atualizar_excel_nfse_principal()
+        self._watcher_ativo = False
+        if hasattr(self, "_watcher"): self._watcher.stop()
         limpar_temporarios()
         self.janela.destroy(); sys.exit(0)
 
@@ -1323,6 +1105,85 @@ class AplicacaoLeitorXML:
         if arq:
             with open(arq, "w", encoding="utf-8") as f: f.write(self.txt_log.get(1.0, tk.END))
             self.log(f"Log salvo: {arq}", "ok")
+
+    def _iniciar_watcher(self):
+        """Monitora arquivos .py do projeto e recarrega módulos ao detectar mudanças."""
+        import extract, transform, load, config.settings as _cfg_mod
+
+        # Módulos recarregáveis e seus arquivos correspondentes
+        self._modulos_watch = {
+            os.path.abspath(mod.__file__): mod
+            for mod in [
+                extract.xml_reader   if hasattr(extract, 'xml_reader')   else None,
+                extract.nfse_reader  if hasattr(extract, 'nfse_reader')  else None,
+                transform.validator  if hasattr(transform, 'validator')  else None,
+                load.storage         if hasattr(load, 'storage')         else None,
+                _cfg_mod,
+            ]
+            if mod is not None and hasattr(mod, '__file__') and mod.__file__
+        }
+
+        # Importar submódulos explicitamente para garantir referência
+        import extract.xml_reader, extract.nfse_reader, transform.validator, load.storage
+        self._modulos_watch = {
+            os.path.abspath(m.__file__): m
+            for m in [
+                extract.xml_reader, extract.nfse_reader,
+                transform.validator, load.storage, _cfg_mod,
+            ]
+        }
+
+        # Snapshot inicial dos mtimes
+        self._watch_mtimes = {
+            arq: os.path.getmtime(arq)
+            for arq in self._modulos_watch
+            if os.path.exists(arq)
+        }
+
+        # Também monitora main_window.py (não recarrega, mas avisa)
+        ui_arquivo = os.path.abspath(__file__)
+        self._watch_mtimes[ui_arquivo] = os.path.getmtime(ui_arquivo) if os.path.exists(ui_arquivo) else 0
+
+        self._watcher_ativo = True
+        threading.Thread(target=self._loop_watcher, daemon=True).start()
+        self.log("👁 File watcher ativo — edite e salve qualquer .py para recarregar.", "info")
+
+    def _loop_watcher(self):
+        while self._watcher_ativo:
+            threading.Event().wait(1.0)  # checa a cada 1 segundo
+            for arq, mtime_anterior in list(self._watch_mtimes.items()):
+                try:
+                    mtime_atual = os.path.getmtime(arq)
+                except OSError:
+                    continue
+                if mtime_atual == mtime_anterior:
+                    continue
+
+                self._watch_mtimes[arq] = mtime_atual
+                nome = os.path.basename(arq)
+
+                # main_window.py — não recarrega, só avisa
+                if "main_window" in arq:
+                    self.janela.after(0, lambda n=nome: self.log(
+                        f"⚠ {n} alterado — reinicie o sistema para aplicar.", "warn"))
+                    continue
+
+                # Demais módulos — recarrega
+                mod = self._modulos_watch.get(arq)
+                if mod is None:
+                    continue
+                try:
+                    importlib.reload(mod)
+                    # Recarregar também os __init__ que reexportam
+                    import extract, transform, load
+                    for pkg in (extract, transform, load):
+                        try: importlib.reload(pkg)
+                        except Exception: pass
+                    self.janela.after(0, lambda n=nome: self.log(
+                        f"🔄 {n} recarregado com sucesso.", "ok"))
+                except Exception as e:
+                    self.janela.after(0, lambda n=nome, err=str(e): self.log(
+                        f"❌ Erro ao recarregar {n}: {err}", "err"))
 
     def run(self):
         self.janela.mainloop()
